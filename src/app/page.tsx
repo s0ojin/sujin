@@ -1,101 +1,151 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+import { useEffect, useRef } from "react";
+import Matter from "matter-js";
+import decomp from "poly-decomp";
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+export default function Page() {
+  const sceneRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    window.decomp = decomp;
+
+    const Engine = Matter.Engine,
+      Render = Matter.Render,
+      Runner = Matter.Runner,
+      Bodies = Matter.Bodies,
+      Composite = Matter.Composite,
+      Svg = Matter.Svg;
+
+    const engine = Engine.create();
+    engine.gravity.y = 1;
+
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    const render = Render.create({
+      element: sceneRef.current!,
+      engine: engine,
+      options: {
+        width: width,
+        height: height,
+        wireframes: false,
+        background: "#f4f4f4",
+      },
+    });
+
+    const svgPaths = [
+      "/assets/S.svg",
+      "/assets/U.svg",
+      "/assets/J.svg",
+      "/assets/I.svg",
+      "/assets/N.svg",
+    ];
+
+    const svgColors = ["#8573fb", "#f857b0", "#ffcd2a", "#52a4f7", "#a4e90f"];
+
+    let colorIndex = 0;
+    const getNextColor = () => {
+      const color = svgColors[colorIndex];
+      colorIndex = (colorIndex + 1) % svgColors.length; // 순환
+      return color;
+    };
+
+    const loadSVG = async (path: string, x: number, y: number) => {
+      const response = await fetch(path);
+      const svgText = await response.text();
+      const parser = new DOMParser();
+      const svgDoc = parser.parseFromString(svgText, "image/svg+xml");
+      const paths = svgDoc.querySelectorAll("path");
+
+      paths.forEach((pathElement) => {
+        const vertices = Svg.pathToVertices(pathElement, 50);
+        const color = getNextColor();
+        const body = Bodies.fromVertices(x, y, vertices, {
+          render: {
+            fillStyle: color,
+            strokeStyle: color,
+            lineWidth: 1,
+          },
+        });
+
+        const mouse = Matter.Mouse.create(render.canvas),
+          mouseConstraint = Matter.MouseConstraint.create(engine, {
+            mouse: mouse,
+            constraint: {
+              stiffness: 0.2,
+              damping: 2,
+              render: {
+                visible: false,
+              },
+            },
+          });
+
+        Matter.Body.scale(body, 0.3, 0.3);
+        Composite.add(engine.world, [body, mouseConstraint]);
+      });
+    };
+
+    const dropRandomSVG = () => {
+      const randomSVG = svgPaths[Math.floor(Math.random() * svgPaths.length)];
+      const x = Math.random() * width;
+      const y = -100;
+      loadSVG(randomSVG, x, y);
+    };
+
+    let dropCount = 0;
+    const maxDrops = 20;
+
+    const dropInterval = setInterval(() => {
+      if (dropCount >= maxDrops) {
+        clearInterval(dropInterval);
+      } else {
+        dropRandomSVG();
+        dropCount++;
+      }
+    }, 500);
+
+    const ground = Bodies.rectangle(width / 2, height, width, 10, {
+      isStatic: true,
+      render: { visible: false },
+    });
+
+    const leftWall = Bodies.rectangle(-1, height / 2, 20, height, {
+      isStatic: true,
+      render: { visible: false },
+    });
+
+    const rightWall = Bodies.rectangle(width + 1, height / 2, 20, height, {
+      isStatic: true,
+      render: { visible: false },
+    });
+
+    Composite.add(engine.world, [ground, leftWall, rightWall]);
+
+    Render.run(render);
+    const runner = Runner.create();
+    Runner.run(runner, engine);
+
+    const handleResize = () => {
+      render.canvas.width = window.innerWidth;
+      render.canvas.height = window.innerHeight;
+      Render.lookAt(render, {
+        min: { x: 0, y: 0 },
+        max: { x: window.innerWidth, y: window.innerHeight },
+      });
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      Render.stop(render);
+      Runner.stop(runner);
+      Composite.clear(engine.world, true);
+      Engine.clear(engine);
+      clearInterval(dropInterval);
+    };
+  }, []);
+
+  return <div ref={sceneRef}></div>;
 }
